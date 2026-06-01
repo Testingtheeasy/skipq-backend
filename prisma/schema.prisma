@@ -1,356 +1,226 @@
+// This is your Prisma schema file
+// Save as: prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// ─── SHOPS ───
 model Shop {
-  id               String    @id @default(cuid())
+  id               String     @id @default(cuid())
   name             String
-  emoji            String    @default("🏪")
-  subdomain        String    @unique
-  brandColor       String    @default("#FF4D00")
-  logoUrl          String?
+  emoji            String     @default("ðŸª")
+  subdomain        String     @unique
+  brandColor       String     @default("#E11D48")
   tagline          String?
+  description      String?
+  address          String?
   ownerName        String
   ownerPhone       String
   ownerEmail       String
   category         String
-  openingTime      String    @default("08:00")
-  closingTime      String    @default("21:00")
-  isOpen           Boolean   @default(false)
-  isActive         Boolean   @default(false)
+  openingTime      String     @default("08:00")
+  closingTime      String     @default("21:00")
+  isOpen           Boolean    @default(false)
+  isActive         Boolean    @default(false)
   status           ShopStatus @default(TRIAL)
   trialEndsAt      DateTime
-  codAllowed       Boolean   @default(true)
-  codThreshold     Int       @default(300)
-  bulkThreshold    Int       @default(10)
-  bulkAdvanceMins  Int       @default(240)
-  uncollectedMins  Int       @default(30)
-  cancelWindowMins Int       @default(15)
-
-  // ── ENQUIRY ALERT SETTINGS (owner decides) ──
-  // null = feature disabled for this shop
-  enquiryAlertsFrom   String?   // "22:00" — time after which LOUD alerts fire
-  enquiryReplyMins    Int       @default(5)  // how many mins owner has to reply
-  enquiryAlertSound   String    @default("loud") // loud | normal | vibrate
-
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  subscriptionPaid Boolean    @default(false)
+  codAllowed       Boolean    @default(true)
+  bulkThreshold    Int        @default(10)
+  enquiryAlertsFrom   String?
+  enquiryReplyMins    Int     @default(5)
+  enquiryAlertSound   String  @default("loud")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   menuItems     MenuItem[]
   orders        Order[]
-  tokens        Token[]
-  settlements   Settlement[]
-  notifications Notification[]
-  loyaltyPoints LoyaltyPoints[]
   enquiries     Enquiry[]
-
-  @@index([subdomain])
+  loyaltyPoints LoyaltyPoints[]
+  feedbacks     Feedback[]
+  specials      Special[]
 }
 
-enum ShopStatus { TRIAL ACTIVE PAUSED SUSPENDED }
+enum ShopStatus {
+  PENDING
+  TRIAL
+  ACTIVE
+  PAUSED
+  SUSPENDED
+}
 
-// ─── MENU ITEMS ───
+model Customer {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders        Order[]
+  enquiries     Enquiry[]
+  loyaltyPoints LoyaltyPoints[]
+  feedbacks     Feedback[]
+}
+
 model MenuItem {
-  id           String            @id @default(cuid())
-  shopId       String
-  shop         Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  category     String
-  name         String
-  description  String?
-  emoji        String            @default("🍽️")
-  price        Int               // paise
-  prepTimeMins Int               @default(10)
-  isVeg        Boolean           @default(true)
+  id               String   @id @default(cuid())
+  shopId           String
+  category         String
+  name             String
+  emoji            String   @default("ðŸ½ï¸")
+  description      String?
+  price            Int
+  prepTimeMins     Int      @default(10)
+  isVeg            Boolean  @default(true)
+  isAvailable      Boolean  @default(true)
+  availabilityState String  @default("AVAILABLE")
+  availMode        String   @default("TOGGLE")
+  dailyLimit       Int      @default(0)
+  soldToday        Int      @default(0)
+  defaultQty       Int      @default(0)
+  foodType         String   @default("FRESH")
+  codAllowed       Boolean  @default(true)
+  enquiryAfterTime String?
+  availFrom        String?
+  availTo          String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  // ── AVAILABILITY — works for BOTH shop types ──
-  availabilityState  AvailabilityState @default(AVAILABLE)
-  // dailyLimit: 0 = unlimited (roadside shops leave this 0)
-  // IT canteens set this to 80, 50 etc — system auto-counts
-  dailyLimit   Int               @default(0)
-  soldToday    Int               @default(0)
-  isPerishable Boolean           @default(true)
-
-  // ── TIME-BASED AUTO SWITCH (owner sets, optional) ──
-  // null = no auto switch, stays as owner manually set it
-  // "22:00" = after 10PM auto switches to CHECK state
-  enquiryAfterTime  String?      // e.g. "22:00"
-  availableFrom     String?      // e.g. "06:00"
-  availableTo       String?      // e.g. "11:00"
-
-  // ── ENQUIRY QUICK QTY OPTIONS ──
-  // JSON array of suggested quantities shown to customer
-  // e.g. "[2,5,10,15,20]" for parotta
-  // null = system picks default based on price range
-  enquiryQtyOptions String?
-
-  displayOrder Int               @default(0)
-  imageUrl     String?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-
-  orderItems   OrderItem[]
-  enquiries    Enquiry[]
-
-  @@index([shopId, availabilityState])
-  @@index([shopId])
+  shop       Shop        @relation(fields:[shopId], references:[id])
+  orderItems OrderItem[]
 }
 
-// ── 3 STATES (replaces old boolean isAvailable) ──
-enum AvailabilityState {
-  AVAILABLE   // Green  — add to cart works normally
-  CHECK       // Yellow — enquire button shows instead
-  SOLDOUT     // Red    — greyed out, cannot order
-}
-
-// ─── ENQUIRIES (new table) ───
-model Enquiry {
-  id            String        @id @default(cuid())
-  shopId        String
-  shop          Shop          @relation(fields: [shopId], references: [id])
-  menuItemId    String
-  menuItem      MenuItem      @relation(fields: [menuItemId], references: [id])
-  customerId    String?
-  customerName  String
-  customerPhone String
-  quantity      Int?          // how many they want
-  message       String?       // text message
-  voiceUrl      String?       // voice message recording URL
-  status        EnquiryStatus @default(PENDING)
-  ownerReply    String?       // "YES" or "NO" or custom message
-  repliedAt     DateTime?
-  alertSentAt   DateTime?
-  escalatedAt   DateTime?     // when call button appeared
-  createdAt     DateTime      @default(now())
-  expiresAt     DateTime      // createdAt + shop.enquiryReplyMins
-
-  @@index([shopId, status])
-  @@index([createdAt])
-}
-
-enum EnquiryStatus {
-  PENDING     // waiting for owner
-  REPLIED_YES // owner confirmed available
-  REPLIED_NO  // owner said not available
-  EXPIRED     // no response in time
-  CANCELLED   // customer cancelled
-}
-
-// ─── ORDERS ───
 model Order {
   id            String      @id @default(cuid())
   shopId        String
-  shop          Shop        @relation(fields: [shopId], references: [id])
   customerId    String?
-  customer      Customer?   @relation(fields: [customerId], references: [id])
+  token         String      @unique
+  status        OrderStatus @default(CONFIRMED)
   customerName  String
   customerPhone String
   altPhone      String?
-  bulkEventName String?
-  orderType     OrderType   @default(NORMAL)
-  pickupDate    DateTime
   pickupSlot    String
-  status        OrderStatus @default(PENDING_PAYMENT)
-  ownerApproved Boolean     @default(false)
-  isPreOrder    Boolean     @default(false)
-  isBulk        Boolean     @default(false)
-  notes         String?
-  subtotal      Int
   totalAmount   Int
-  pointsEarned  Int         @default(0)
-  pointsRedeemed Int        @default(0)
-  checkedInAt   DateTime?
-  collectedAt   DateTime?
-  cancelledAt   DateTime?
+  paymentMethod String      @default("UPI")
+  isBulk        Boolean     @default(false)
+  bulkNote      String?
   cancelReason  String?
+  readySince    DateTime?
+  deliveredAt   DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  orderItems    OrderItem[]
-  payment       Payment?
-  token         Token?
-  dispute       Dispute?
-  notifications Notification[]
-
-  @@index([shopId, status])
-  @@index([customerId])
+  shop       Shop        @relation(fields:[shopId], references:[id])
+  customer   Customer?   @relation(fields:[customerId], references:[id])
+  orderItems OrderItem[]
+  feedback   Feedback[]
 }
 
-enum OrderType   { NORMAL BULK PREORDER }
-enum OrderStatus { PENDING_PAYMENT PENDING_APPROVAL CONFIRMED PREPARING READY COLLECTED CANCELLED UNCOLLECTED }
+enum OrderStatus {
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+  UNCOLLECTED
+}
 
-// ─── ORDER ITEMS ───
 model OrderItem {
-  id         String   @id @default(cuid())
-  orderId    String
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItemId String
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
-  itemName   String
-  quantity   Int
-  unitPrice  Int
-  subtotal   Int
-  @@index([orderId])
+  id           String   @id @default(cuid())
+  orderId      String
+  menuItemId   String?
+  itemName     String
+  quantity     Int
+  unitPrice    Int
+  prepTimeMins Int      @default(10)
+  foodType     String   @default("FRESH")
+  isSpecial    Boolean  @default(false)
+
+  order    Order     @relation(fields:[orderId], references:[id])
+  menuItem MenuItem? @relation(fields:[menuItemId], references:[id])
 }
 
-// ─── TOKENS ───
-model Token {
-  id           String      @id @default(cuid())
-  shopId       String
-  shop         Shop        @relation(fields: [shopId], references: [id])
-  orderId      String      @unique
-  order        Order       @relation(fields: [orderId], references: [id])
-  tokenNumber  Int
-  tokenDisplay String
-  tokenDate    DateTime    @default(now())
-  status       TokenStatus @default(ACTIVE)
-  createdAt    DateTime    @default(now())
-  @@unique([shopId, tokenNumber, tokenDate])
-  @@index([shopId, tokenDate])
-}
-enum TokenStatus { ACTIVE COLLECTED EXPIRED UNCOLLECTED }
-
-// ─── PAYMENTS ───
-model Payment {
-  id               String        @id @default(cuid())
-  orderId          String        @unique
-  order            Order         @relation(fields: [orderId], references: [id])
-  shopId           String
-  amount           Int
-  paymentMethod    PaymentMethod
-  gatewayOrderId   String?
-  gatewayPaymentId String?
-  gatewaySignature String?
-  gatewayFee       Int           @default(0)
-  status           PaymentStatus @default(PENDING)
-  refundAmount     Int           @default(0)
-  refundReason     String?
-  refundedAt       DateTime?
-  settled          Boolean       @default(false)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  @@index([shopId, settled])
-}
-enum PaymentMethod  { UPI CARD WALLET COD }
-enum PaymentStatus  { PENDING SUCCESS FAILED REFUNDED PARTIAL_REFUND }
-
-// ─── LOYALTY ───
 model LoyaltyPoints {
+  id         String   @id @default(cuid())
+  customerId String
+  shopId     String?
+  balance    Int      @default(0)
+  earned     Int      @default(0)
+  redeemed   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields:[customerId], references:[id])
+  shop     Shop?    @relation(fields:[shopId], references:[id])
+
+  @@unique([customerId])
+}
+
+model Enquiry {
+  id             String        @id @default(cuid())
+  shopId         String
+  customerId     String?
+  menuItemName   String
+  menuItemEmoji  String        @default("ðŸ½ï¸")
+  quantity       Int?
+  message        String?
+  status         EnquiryStatus @default(PENDING)
+  ownerReply     String?
+  repliedAt      DateTime?
+  orderedAfter   Boolean       @default(false)
+  expiresAt      DateTime
+  createdAt      DateTime      @default(now())
+
+  shop     Shop      @relation(fields:[shopId], references:[id])
+  customer Customer? @relation(fields:[customerId], references:[id])
+}
+
+enum EnquiryStatus {
+  PENDING
+  REPLIED_YES
+  REPLIED_NO
+  EXPIRED
+  CANCELLED
+}
+
+model Feedback {
   id            String   @id @default(cuid())
-  customerId    String
-  customer      Customer @relation(fields: [customerId], references: [id])
   shopId        String
-  shop          Shop     @relation(fields: [shopId], references: [id])
-  balance       Int      @default(0)
-  totalEarned   Int      @default(0)
-  totalRedeemed Int      @default(0)
-  expiresAt     DateTime
-  warningSent   Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  @@unique([customerId, shopId])
-}
-
-// ─── SETTLEMENT ───
-model Settlement {
-  id              String           @id @default(cuid())
-  shopId          String
-  shop            Shop             @relation(fields: [shopId], references: [id])
-  period          String
-  periodStart     DateTime
-  periodEnd       DateTime
-  grossRevenue    Int
-  gatewayFees     Int              @default(0)
-  loyaltyCost     Int              @default(0)
-  subscriptionFee Int              @default(49900)
-  netAmount       Int
-  bankAccount     String?
-  status          SettlementStatus @default(PENDING)
-  processedAt     DateTime?
-  createdAt       DateTime         @default(now())
-}
-enum SettlementStatus { PENDING PROCESSING PROCESSED FAILED }
-
-// ─── CUSTOMER ───
-model Customer {
-  id          String   @id @default(cuid())
-  phone       String   @unique
-  name        String?
-  email       String?
-  isVerified  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  orders        Order[]
-  loyaltyPoints LoyaltyPoints[]
-  disputes      Dispute[]
-  @@index([phone])
-}
-
-// ─── DISPUTE ───
-model Dispute {
-  id          String        @id @default(cuid())
-  orderId     String        @unique
-  order       Order         @relation(fields: [orderId], references: [id])
-  shopId      String
-  customerId  String
-  customer    Customer      @relation(fields: [customerId], references: [id])
-  raisedBy    DisputeRaiser
-  reason      String
-  description String
-  status      DisputeStatus @default(OPEN)
-  resolution  String?
-  adminNote   String?
-  resolvedAt  DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-enum DisputeRaiser { CUSTOMER SHOP }
-enum DisputeStatus { OPEN IN_PROGRESS RESOLVED CLOSED }
-
-// ─── NOTIFICATION ───
-model Notification {
-  id            String        @id @default(cuid())
-  shopId        String?
-  shop          Shop?         @relation(fields: [shopId], references: [id])
+  customerId    String?
   orderId       String?
-  order         Order?        @relation(fields: [orderId], references: [id])
-  recipientType RecipientType
-  recipientId   String
-  type          NotifType
-  channel       NotifChannel
-  title         String
-  message       String
-  status        NotifStatus   @default(PENDING)
-  sentAt        DateTime?
-  createdAt     DateTime      @default(now())
-  @@index([recipientId, recipientType])
-}
-enum RecipientType { CUSTOMER OWNER ADMIN }
-enum NotifType     { ORDER_CONFIRMED ORDER_READY ORDER_CANCELLED BULK_REQUEST TRIAL_EXPIRING POINTS_EXPIRING ANNOUNCEMENT SURGE_ALERT ENQUIRY_RECEIVED ENQUIRY_EXPIRING }
-enum NotifChannel  { INAPP EMAIL SMS WHATSAPP }
-enum NotifStatus   { PENDING SENT DELIVERED FAILED }
+  orderToken    String?
+  rating        Int
+  issue         String?
+  comment       String?
+  status        String   @default("OPEN")
+  shopReply     String?
+  adminNote     String?
+  resolvedAt    DateTime?
+  createdAt     DateTime @default(now())
 
-// ─── ADMIN ───
-model AdminUser {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      String   @default("admin")
-  lastLogin DateTime?
-  createdAt DateTime @default(now())
+  shop     Shop      @relation(fields:[shopId], references:[id])
+  customer Customer? @relation(fields:[customerId], references:[id])
+  order    Order?    @relation(fields:[orderId], references:[id])
 }
 
-// ─── OTP ───
-model OtpStore {
-  id        String   @id @default(cuid())
-  phone     String
-  otp       String
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  @@index([phone])
+model Special {
+  id           String   @id @default(cuid())
+  shopId       String
+  menuItemId   String?
+  name         String
+  emoji        String   @default("ðŸ”¥")
+  description  String?
+  price        Int
+  originalPrice Int
+  discount     Int
+  soldOut      Boolean  @default(false)
+  expiresAt    String
+  createdAt    DateTime @default(now())
+
+  shop Shop @relation(fields:[shopId], references:[id])
 }
