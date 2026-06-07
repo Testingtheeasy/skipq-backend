@@ -30,6 +30,7 @@ model Shop {
   subscriptionPaid Boolean    @default(false)
   codAllowed       Boolean    @default(true)
   bulkThreshold    Int        @default(10)
+  googleMapsUrl String?
   enquiryAlertsFrom   String?
   enquiryReplyMins    Int     @default(5)
   enquiryAlertSound   String  @default("loud")
