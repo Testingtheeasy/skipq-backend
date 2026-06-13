@@ -37,6 +37,11 @@ model Shop {
   enquiryAlertSound   String  @default("loud")
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
+  preOrderEnabled   Boolean  @default(false)
+  preOrderPayment   String   @default("BOTH")
+  preOrderDaysAhead Int      @default(1)
+  orderWindowStart  String   @default("10:00")
+  deliveryStart     String   @default("12:00")
 
   menuItems     MenuItem[]
   orders        Order[]
