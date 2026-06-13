@@ -42,7 +42,9 @@ model Shop {
   preOrderDaysAhead Int      @default(1)
   orderWindowStart  String   @default("10:00")
   deliveryStart     String   @default("12:00")
-
+  hasCustomHours     Boolean  @default(false)
+  hasMultipleShifts  Boolean  @default(false)
+  shiftSchedule      String   @default("[]")
   menuItems     MenuItem[]
   orders        Order[]
   enquiries     Enquiry[]
