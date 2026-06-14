@@ -51,6 +51,7 @@ model Shop {
   loyaltyPoints LoyaltyPoints[]
   feedbacks     Feedback[]
   specials      Special[]
+  slotInterval Int @default(10)
 }
 
 enum ShopStatus {
