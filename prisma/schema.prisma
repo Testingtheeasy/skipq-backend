@@ -68,7 +68,7 @@ model Customer {
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  password String?
   orders        Order[]
   enquiries     Enquiry[]
   loyaltyPoints LoyaltyPoints[]
