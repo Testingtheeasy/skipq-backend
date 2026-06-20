@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
       include: { orderItems: true },
       orderBy: { createdAt: 'desc' },
       take: 100,
-    });
+    }));
     res.json(orders);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
