@@ -73,6 +73,7 @@ model Customer {
   enquiries     Enquiry[]
   loyaltyPoints LoyaltyPoints[]
   feedbacks     Feedback[]
+  shortId Int @default(autoincrement())
 }
 
 model MenuItem {
