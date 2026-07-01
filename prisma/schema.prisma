@@ -209,6 +209,7 @@ model Feedback {
   adminNote   String?
   resolvedAt  DateTime?
   createdAt   DateTime  @default(now())
+  type String @default("RATING")
 
   shop     Shop      @relation(fields: [shopId], references: [id])
   customer Customer? @relation(fields: [customerId], references: [id])
