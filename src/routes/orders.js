@@ -61,18 +61,40 @@ router.post('/', async (req, res) => {
       include: { orderItems: true }
     }));
 
-    // FIX 2: increment soldToday - try menuItemId first, then item.id as fallback
+    // Increment soldToday and auto-flip to SOLDOUT if dailyLimit reached
     for (var i = 0; i < (items || []).length; i++) {
       var item = items[i];
       var mid = item.menuItemId || item.id;
       if (mid) {
         try {
-          await db(function(p) { return p.menuItem.update({ where: { id: mid }, data: { soldToday: { increment: item.quantity || item.qty || 1 } } }); });
-        } catch(e) { console.log('soldToday:', e.message); }
+          // Increment soldToday
+          var updated = await db(function(p) {
+            return p.menuItem.update({
+              where: { id: mid },
+              data: { soldToday: { increment: item.quantity || item.qty || 1 } }
+            });
+          });
+          // Auto-flip to SOLDOUT if QTY mode and limit reached
+          if (
+            updated &&
+            updated.availMode === 'QTY' &&
+            updated.dailyLimit > 0 &&
+            updated.soldToday >= updated.dailyLimit &&
+            updated.availabilityState !== 'SOLDOUT'
+          ) {
+            await db(function(p) {
+              return p.menuItem.update({
+                where: { id: updated.id },
+                data: { availabilityState: 'SOLDOUT' }
+              });
+            });
+            console.log('[SkipQ] Auto-SOLDOUT:', updated.name, 'sold:', updated.soldToday, '/', updated.dailyLimit);
+          }
+        } catch(e) { console.log('soldToday update error:', e.message); }
       }
     }
 
-    // FIX 5: loyalty - always create record, award points on UPI
+    // Loyalty points
     if (customerId) {
       var ptsEarned = (paymentMethod === 'UPI') ? Math.max(1, Math.round(totalAmount / 10000)) : 0;
       try {
