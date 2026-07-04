@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Shop {
+  id               String     @id @default(cuid())
+  name             String
+  emoji            String     @default("🏪")
+  subdomain        String     @unique
+  brandColor       String     @default("#E11D48")
+  tagline          String?
+  description      String?
+  address          String?
+  ownerName        String
+  ownerPhone       String
+  ownerEmail       String
+  ownerPassword    String?
+  googleMapsUrl    String?
+  category         String
+  openingTime      String     @default("08:00")
+  closingTime      String     @default("21:00")
+  isOpen           Boolean    @default(false)
+  isActive         Boolean    @default(false)
+  status           ShopStatus @default(TRIAL)
+  trialEndsAt      DateTime
+  subscriptionPaid Boolean    @default(false)
+  codAllowed       Boolean    @default(true)
+  bulkThreshold    Int        @default(10)
+  enquiryAlertsFrom   String?
+  enquiryReplyMins    Int     @default(5)
+  enquiryAlertSound   String  @default("loud")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  preOrderEnabled   Boolean  @default(false)
+  preOrderPayment   String   @default("BOTH")
+  preOrderDaysAhead Int      @default(1)
+  orderWindowStart  String   @default("10:00")
+  deliveryStart     String   @default("12:00")
+  hasCustomHours     Boolean  @default(false)
+  hasMultipleShifts  Boolean  @default(false)
+  shiftSchedule      String   @default("[]")
+  menuItems     MenuItem[]
+  orders        Order[]
+  enquiries     Enquiry[]
+  loyaltyPoints LoyaltyPoints[]
+  feedbacks     Feedback[]
+  specials      Special[]
+  slotInterval Int @default(10)
+}
+
+enum ShopStatus {
+  PENDING
+  TRIAL
+  ACTIVE
+  PAUSED
+  SUSPENDED
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  password String?
+  orders        Order[]
+  enquiries     Enquiry[]
+  loyaltyPoints LoyaltyPoints[]
+  feedbacks     Feedback[]
+  shortId Int @default(autoincrement())
+}
+
+model MenuItem {
+  id                String   @id @default(cuid())
+  shopId            String
+  category          String
+  name              String
+  emoji             String   @default("🍽️")
+  description       String?
+  price             Int
+  prepTimeMins      Int      @default(10)
+  isVeg             Boolean  @default(true)
+  isAvailable       Boolean  @default(true)
+  availabilityState String   @default("AVAILABLE")
+  availMode         String   @default("TOGGLE")
+  dailyLimit        Int      @default(0)
+  soldToday         Int      @default(0)
+  soldTodayDate     DateTime @default(now())
+  defaultQty        Int      @default(0)
+  foodType          String   @default("FRESH")
+  codAllowed        Boolean  @default(true)
+  enquiryAfterTime  String?
+  availFrom         String?
+  availTo           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  shop       Shop        @relation(fields: [shopId], references: [id])
+  orderItems OrderItem[]
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  shopId        String
+  customerId    String?
+  token         String      @unique
+  status        OrderStatus @default(CONFIRMED)
+  customerName  String
+  customerPhone String
+  altPhone      String?
+  pickupSlot    String
+  totalAmount   Int
+  paymentMethod String      @default("UPI")
+  isBulk        Boolean     @default(false)
+  bulkNote      String?
+  cancelReason  String?
+  readySince    DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  shop       Shop        @relation(fields: [shopId], references: [id])
+  customer   Customer?   @relation(fields: [customerId], references: [id])
+  orderItems OrderItem[]
+  feedback   Feedback[]
+}
+
+enum OrderStatus {
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+  UNCOLLECTED
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  menuItemId   String?
+  itemName     String
+  quantity     Int
+  unitPrice    Int
+  prepTimeMins Int      @default(10)
+  foodType     String   @default("FRESH")
+  isSpecial    Boolean  @default(false)
+
+  order    Order     @relation(fields: [orderId], references: [id])
+  menuItem MenuItem? @relation(fields: [menuItemId], references: [id])
+}
+
+model LoyaltyPoints {
+  id         String   @id @default(cuid())
+  customerId String   @unique
+  shopId     String?
+  balance    Int      @default(0)
+  earned     Int      @default(0)
+  redeemed   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  shop     Shop?    @relation(fields: [shopId], references: [id])
+}
+
+model Enquiry {
+  id            String        @id @default(cuid())
+  shopId        String
+  customerId    String?
+  menuItemName  String
+  menuItemEmoji String        @default("🍽️")
+  quantity      Int?
+  message       String?
+  status        EnquiryStatus @default(PENDING)
+  ownerReply    String?
+  repliedAt     DateTime?
+  orderedAfter  Boolean       @default(false)
+  expiresAt     DateTime
+  createdAt     DateTime      @default(now())
+
+  shop     Shop      @relation(fields: [shopId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+}
+
+enum EnquiryStatus {
+  PENDING
+  REPLIED_YES
+  REPLIED_NO
+  EXPIRED
+  CANCELLED
+}
+
+model Feedback {
+  id          String    @id @default(cuid())
+  shopId      String
+  customerId  String?
+  orderId     String?
+  orderToken  String?
+  rating      Int
+  issue       String?
+  comment     String?
+  status      String    @default("OPEN")
+  shopReply   String?
+  adminNote   String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  type String @default("RATING")
+
+  shop     Shop      @relation(fields: [shopId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  order    Order?    @relation(fields: [orderId], references: [id])
+}
+
+model Special {
+  id            String   @id @default(cuid())
+  shopId        String
+  menuItemId    String?
+  name          String
+  emoji         String   @default("🔥")
+  description   String?
+  price         Int
+  originalPrice Int
+  discount      Int
+  soldOut       Boolean  @default(false)
+  expiresAt     String
+  createdAt     DateTime @default(now())
+
+  shop Shop @relation(fields: [shopId], references: [id])
+}
