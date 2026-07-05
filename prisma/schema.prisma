@@ -122,6 +122,7 @@ model Order {
   isBulk        Boolean     @default(false)
   bulkNote      String?
   cancelReason  String?
+  pointsAwarded Boolean       @default(false)
   readySince    DateTime?
   deliveredAt   DateTime?
   createdAt     DateTime    @default(now())
