@@ -8,6 +8,11 @@ dotenv.config();
 const app  = express();
 const PORT = process.env.PORT || 4000;
 
+// Render sits behind a reverse proxy - without this, express-rate-limit
+// can't see individual client IPs and ends up rate-limiting your ENTIRE
+// user base as if they were one single visitor.
+app.set('trust proxy', 1);
+
 // ── CORS — Must be FIRST before everything ──
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -21,7 +26,29 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-app.use(rateLimit({ windowMs: 15*60*1000, max: 500 }));
+
+// General limit: generous enough for normal polling (menu/orders/shop
+// refreshes every 8-15s across owner + customer apps) per real client IP.
+app.use(rateLimit({
+  windowMs: 15*60*1000,
+  max: 3000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+}));
+
+// Stricter limit specifically on auth/OTP-style endpoints, where abuse
+// actually matters (brute-forcing passwords, OTP spam, fake signups).
+const authLimiter = rateLimit({
+  windowMs: 15*60*1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later.' },
+});
+app.use('/api/auth', authLimiter);
+app.use('/api/customers/login', authLimiter);
+app.use('/api/customers/register', authLimiter);
 
 // ── ROUTES ──
 app.use('/api/auth',      require('./routes/auth'));
