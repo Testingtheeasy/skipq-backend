@@ -18,10 +18,19 @@ async function ensureFreshSoldToday(prisma, item) {
   if (!item || !isDifferentDay(new Date(item.soldTodayDate))) return item;
 
   const data = { soldToday: 0, soldTodayDate: new Date() };
-  // Only clear an auto-SOLDOUT flag for qty-tracked items; owner-toggled
-  // TOGGLE items should keep whatever state the owner set manually.
-  if (item.availMode === 'QTY' && item.availabilityState === 'SOLDOUT') {
-    data.availabilityState = 'AVAILABLE';
+
+  if (item.availMode === 'QTY') {
+    // Quantity-tracked items auto-refill to their predefined daily target.
+    // dailyLimit is the owner's permanent "shop sells ~100/day" setting and
+    // is never touched here - only the live running stock is reset.
+    data.currentStock = item.dailyLimit || 0;
+    if (item.availabilityState === 'SOLDOUT') data.availabilityState = 'AVAILABLE';
+  } else {
+    // Non-quantity (TOGGLE) items can't auto-refill - default them to
+    // "CHECK" (enquiry) each morning and flag for the owner to confirm
+    // today's real availability.
+    data.availabilityState = 'CHECK';
+    data.needsDailyReview = true;
   }
 
   const updated = await prisma.menuItem.update({
