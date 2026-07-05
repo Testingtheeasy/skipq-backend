@@ -105,21 +105,6 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // Loyalty points
-    if (customerId) {
-      var ptsEarned = Math.max(1, Math.round(totalAmount / 10000));
-      try {
-        var existing = await db(function(p) { return p.loyaltyPoints.findUnique({ where: { customerId: customerId } }); });
-        if (existing) {
-          if (ptsEarned > 0) {
-            await db(function(p) { return p.loyaltyPoints.update({ where: { customerId: customerId }, data: { balance: { increment: ptsEarned }, earned: { increment: ptsEarned } } }); });
-          }
-        } else {
-          await db(function(p) { return p.loyaltyPoints.create({ data: { customerId: customerId, shopId: shopId, balance: ptsEarned, earned: ptsEarned } }); });
-        }
-      } catch(e) { console.log('loyalty:', e.message); }
-    }
-
     res.json(order);
   } catch (err) {
     console.error('Order create error:', err.message);
@@ -134,6 +119,23 @@ router.patch('/:id/status', async (req, res) => {
     if (status === 'READY') data.readySince = new Date();
     if (status === 'DELIVERED') data.deliveredAt = new Date();
     const order = await db(p => p.order.update({ where: { id: req.params.id }, data, include: { orderItems: true } }));
+
+    // Award loyalty points only once the order is actually delivered -
+    // not at placement time, so a cancelled-after-ordering order never
+    // earns points in the first place.
+    if (status === 'DELIVERED' && order.customerId && !order.pointsAwarded) {
+      const ptsEarned = Math.max(1, Math.round(order.totalAmount / 10000));
+      try {
+        const existing = await db(p => p.loyaltyPoints.findUnique({ where: { customerId: order.customerId } }));
+        if (existing) {
+          await db(p => p.loyaltyPoints.update({ where: { customerId: order.customerId }, data: { balance: { increment: ptsEarned }, earned: { increment: ptsEarned } } }));
+        } else {
+          await db(p => p.loyaltyPoints.create({ data: { customerId: order.customerId, shopId: order.shopId, balance: ptsEarned, earned: ptsEarned } }));
+        }
+        await db(p => p.order.update({ where: { id: order.id }, data: { pointsAwarded: true } }));
+      } catch(e) { console.log('loyalty on delivery:', e.message); }
+    }
+
     res.json(order);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
