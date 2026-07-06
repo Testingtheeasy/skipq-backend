@@ -92,6 +92,12 @@ model MenuItem {
   dailyLimit        Int      @default(0)
   currentStock      Int      @default(0)
   needsDailyReview  Boolean  @default(false)
+  preOrderAvailable Boolean  @default(false)
+  preOrderMaxQty    Int      @default(0)
+  preOrderSoldToday Int      @default(0)
+  preorderEnabled   Boolean  @default(false) // owner opts item into the Pre-Order tab
+  preorderMaxQty    Int      @default(0)     // mandatory cap once enabled; prefilled from dailyLimit
+  preorderSold      Int      @default(0)     // separate running count, resets daily alongside soldToday
   soldToday         Int      @default(0)
   soldTodayDate     DateTime @default(now())
   defaultQty        Int      @default(0)
@@ -123,6 +129,8 @@ model Order {
   bulkNote      String?
   cancelReason  String?
   pointsAwarded Boolean       @default(false)
+  isPreOrder    Boolean       @default(false)
+  isPreorder    Boolean       @default(false)
   readySince    DateTime?
   deliveredAt   DateTime?
   createdAt     DateTime    @default(now())
