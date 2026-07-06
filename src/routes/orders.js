@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { shopId, customerId, customerName, customerPhone, altPhone, pickupSlot, totalAmount, paymentMethod, isBulk, bulkNote, items } = req.body;
+    const { shopId, customerId, customerName, customerPhone, altPhone, pickupSlot, totalAmount, paymentMethod, isBulk, bulkNote, items, isPreOrder } = req.body;
     if (!shopId || !items || !items.length) return res.status(400).json({ error: 'shopId and items required' });
     const shop  = await db(p => p.shop.findUnique({ where: { id: shopId } }));
     if (!shop) return res.status(404).json({ error: 'Shop not found' });
@@ -32,6 +32,7 @@ router.post('/', async (req, res) => {
         altPhone: altPhone || null, pickupSlot, totalAmount,
         paymentMethod: paymentMethod || 'UPI', isBulk: isBulk || false,
         bulkNote: bulkNote || null, token, status: 'CONFIRMED',
+        isPreOrder: !!isPreOrder,
         orderItems: {
           create: items.map(function(item) {
             return {
@@ -49,7 +50,30 @@ router.post('/', async (req, res) => {
       include: { orderItems: true }
     }));
 
+    if (isPreOrder) {
+      // Pre-orders draw from their OWN separate counter (preOrderMaxQty /
+      // preOrderSoldToday) - they must never touch today's live
+      // soldToday/currentStock, since a pre-order is for a future pickup,
+      // not today's walk-in stock.
+      for (var pi = 0; pi < (items || []).length; pi++) {
+        var pitem = items[pi];
+        var pmid = pitem.menuItemId || pitem.id;
+        if (!pmid) continue;
+        try {
+          await db(function(p) {
+            return p.menuItem.update({
+              where: { id: pmid },
+              data: { preOrderSoldToday: { increment: pitem.quantity || pitem.qty || 1 } }
+            });
+          });
+        } catch(e) { console.log('preOrderSoldToday update error:', e.message); }
+      }
+      res.json(order);
+      return;
+    }
+
     // Increment soldToday and auto-flip to SOLDOUT if dailyLimit reached
+    // (live orders only - pre-orders handled above and return early)
     for (var i = 0; i < (items || []).length; i++) {
       var item = items[i];
       var mid = item.menuItemId || item.id;
@@ -119,6 +143,7 @@ router.patch('/:id/status', async (req, res) => {
         } else {
           await db(p => p.loyaltyPoints.create({ data: { customerId: order.customerId, shopId: order.shopId, balance: ptsEarned, earned: ptsEarned } }));
         }
+        order.pointsAwarded = true;
         await db(p => p.order.update({ where: { id: order.id }, data: { pointsAwarded: true } }));
       } catch(e) { console.log('loyalty on delivery:', e.message); }
     }

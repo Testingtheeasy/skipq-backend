@@ -57,6 +57,7 @@ router.patch('/:id', async (req, res) => {
       'category','name','emoji','description','price','prepTimeMins',
       'isVeg','isAvailable','availabilityState','availMode',
       'dailyLimit','currentStock','needsDailyReview','soldToday','defaultQty','foodType',
+      'preOrderAvailable','preOrderMaxQty','preOrderSoldToday',
       'codAllowed','enquiryAfterTime','availFrom','availTo',
     ];
     allowed.forEach(k => { if (b[k] !== undefined) data[k] = b[k]; });
