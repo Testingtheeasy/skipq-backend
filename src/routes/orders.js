@@ -148,7 +148,8 @@ router.patch('/:id/status', async (req, res) => {
           await db(p => p.loyaltyPoints.create({ data: { customerId: order.customerId, shopId: order.shopId, balance: ptsEarned, earned: ptsEarned } }));
         }
         order.pointsAwarded = true;
-        await db(p => p.order.update({ where: { id: order.id }, data: { pointsAwarded: true } }));
+        order.pointsEarned = ptsEarned;
+        await db(p => p.order.update({ where: { id: order.id }, data: { pointsAwarded: true, pointsEarned: ptsEarned } }));
       } catch(e) { console.log('loyalty on delivery:', e.message); }
     }
 
