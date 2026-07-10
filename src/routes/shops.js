@@ -74,7 +74,7 @@ router.patch('/:id', async (req, res) => {
       'address','googleMapsUrl','ownerName','ownerPhone','ownerEmail',
       'openingTime','closingTime','isOpen','status','subscriptionPaid',
       'subscriptionExpiry','trialDays','ownerPassword',
-      'preOrderEnabled','preOrderPayment','preOrderDaysAhead',
+      'preOrderEnabled','preOrderPayment','preOrderDaysAhead','asapOnly','bannerImageUrl',
       'orderWindowStart','deliveryStart',
       'hasCustomHours','hasMultipleShifts','shiftSchedule','slotInterval',
     ];
