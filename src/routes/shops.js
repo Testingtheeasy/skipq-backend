@@ -1,6 +1,48 @@
 const express = require('express');
 const router  = express.Router();
 const { db } = require('../db');
+const multer  = require('multer');
+const cloudinary = require('../cloudinary');
+
+// Files land in memory only (not written to Render's disk, which doesn't
+// persist between deploys anyway) and get streamed straight to Cloudinary.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB cap
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files are allowed'));
+    cb(null, true);
+  },
+});
+
+router.post('/:id/upload-banner', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image file received' });
+
+    const uploaded = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'skipq/shop-banners',
+          public_id: req.params.id,
+          overwrite: true,
+          transformation: [{ width: 1200, height: 600, crop: 'fill', quality: 'auto' }],
+        },
+        (err, result) => err ? reject(err) : resolve(result)
+      );
+      stream.end(req.file.buffer);
+    });
+
+    const shop = await db(p => p.shop.update({
+      where: { id: req.params.id },
+      data: { bannerImageUrl: uploaded.secure_url },
+    }));
+
+    res.json({ bannerImageUrl: shop.bannerImageUrl });
+  } catch (err) {
+    console.error('Banner upload error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/', async (req, res) => {
   try {
