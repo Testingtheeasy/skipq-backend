@@ -42,6 +42,7 @@ model Shop {
   preOrderDaysAhead Int      @default(1)
   asapOnly          Boolean  @default(false)
   bannerImageUrl    String?
+  orderMode         String   @default("BOTH")
   orderWindowStart  String   @default("10:00")
   deliveryStart     String   @default("12:00")
   hasCustomHours     Boolean  @default(false)
