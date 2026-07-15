@@ -43,6 +43,10 @@ model Shop {
   asapOnly          Boolean  @default(false)
   bannerImageUrl    String?
   orderMode         String   @default("BOTH")
+  homeDeliveryEnabled Boolean @default(false)
+  homeDeliveryFee     Int     @default(0)
+  homeDeliveryFrom    String  @default("10:00")
+  homeDeliveryTo      String  @default("21:00")
   orderWindowStart  String   @default("10:00")
   deliveryStart     String   @default("12:00")
   hasCustomHours     Boolean  @default(false)
@@ -131,6 +135,9 @@ model Order {
   pointsAwarded Boolean       @default(false)
   pointsEarned  Int           @default(0)
   isPreOrder    Boolean       @default(false)
+  isHomeDelivery Boolean      @default(false)
+  deliveryAddress String?
+  deliveryFee    Int          @default(0)
   readySince    DateTime?
   deliveredAt   DateTime?
   createdAt     DateTime    @default(now())
