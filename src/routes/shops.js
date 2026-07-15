@@ -117,6 +117,7 @@ router.patch('/:id', async (req, res) => {
       'openingTime','closingTime','isOpen','status','subscriptionPaid',
       'subscriptionExpiry','trialDays','ownerPassword',
       'preOrderEnabled','preOrderPayment','preOrderDaysAhead','asapOnly','bannerImageUrl','orderMode',
+      'homeDeliveryEnabled','homeDeliveryFee','homeDeliveryFrom','homeDeliveryTo',
       'orderWindowStart','deliveryStart',
       'hasCustomHours','hasMultipleShifts','shiftSchedule','slotInterval',
     ];

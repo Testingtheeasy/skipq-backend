@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { shopId, customerId, customerName, customerPhone, altPhone, pickupSlot, totalAmount, paymentMethod, isBulk, bulkNote, items, isPreOrder } = req.body;
+    const { shopId, customerId, customerName, customerPhone, altPhone, pickupSlot, totalAmount, paymentMethod, isBulk, bulkNote, items, isPreOrder, isHomeDelivery, deliveryAddress, deliveryFee } = req.body;
     if (!shopId || !items || !items.length) return res.status(400).json({ error: 'shopId and items required' });
     const shop  = await db(p => p.shop.findUnique({ where: { id: shopId } }));
     if (!shop) return res.status(404).json({ error: 'Shop not found' });
@@ -37,6 +37,9 @@ router.post('/', async (req, res) => {
         paymentMethod: paymentMethod || 'UPI', isBulk: isBulk || false,
         bulkNote: bulkNote || null, token, status: 'CONFIRMED',
         isPreOrder: !!isPreOrder,
+        isHomeDelivery: !!isHomeDelivery,
+        deliveryAddress: deliveryAddress || null,
+        deliveryFee: deliveryFee || 0,
         orderItems: {
           create: items.map(function(item) {
             return {
